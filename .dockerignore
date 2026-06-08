@@ -1,0 +1,7 @@
+.git
+.gitignore
+.env
+*.md
+public/config.js
+node_modules
+*.log
