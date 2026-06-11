@@ -31,12 +31,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
-# Copy the FULL dependency tree last so the Prisma CLI (db push / migrate) and
-# tsx (seed) work at container start. Copying the whole directory preserves the
-# internal symlinks/engines (.bin -> package builds, *.wasm, query engines) that
-# break when individual packages are cherry-picked. It also overwrites the
-# pruned standalone node_modules with a superset, so server.js still runs.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Prisma CLI (for `db push`/`migrate deploy`) + generated client + engines, and
+# bcryptjs for the seed. We copy whole package directories (not the .bin shims)
+# so the CLI's bundled *.wasm and query engines resolve correctly at runtime.
+# The Next standalone output already bundles @prisma/client for the server.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh && chown -R nextjs:nodejs /app
