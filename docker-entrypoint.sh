@@ -1,15 +1,14 @@
 #!/bin/sh
-set -e
+# Resilient startup: sync the DB schema + seed, but never let those steps
+# crash the container — always start the server so the app stays up.
 
-# Sync the schema to the database. We use `db push` (no migration history)
-# so the first deploy creates all tables without needing pre-authored
-# migration files. Switch to `prisma migrate deploy` once you start
-# committing migrations under prisma/migrations.
-echo "[card2pay] Syncing database schema…"
+echo "[card2pay] DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo yes || echo NO)"
+
+echo "[card2pay] Syncing database schema (prisma db push)…"
 if [ -d "prisma/migrations" ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
-  npx prisma migrate deploy
+  npx prisma migrate deploy || echo "[card2pay] migrate deploy failed (continuing)"
 else
-  npx prisma db push --skip-generate --accept-data-loss
+  npx prisma db push --skip-generate --accept-data-loss || echo "[card2pay] db push failed (continuing)"
 fi
 
 echo "[card2pay] Seeding admin user…"
