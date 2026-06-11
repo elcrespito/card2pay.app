@@ -1,25 +1,19 @@
 #!/bin/sh
-# Renders public/config.template.js -> config.js using environment variables.
-# Runs automatically via nginx's /docker-entrypoint.d/ hook before nginx starts.
 set -e
 
-: "${BUYCOIN_WIDGET_TOKEN:=}"
-: "${BUYCOIN_EXCHANGER_URL:=https://buycoin.online/x/calc/exchanger.js}"
-: "${WIDGET_CURRENCY_FROM:=EUR}"
-: "${WIDGET_CURRENCY_TO:=USDT}"
-: "${WIDGET_LOCALE:=en}"
-: "${WIDGET_LAYOUT:=vertical}"
-: "${WIDGET_THEME:=light}"
-: "${ALLOWED_REFERRER:=peptides}"
+# Sync the schema to the database. We use `db push` (no migration history)
+# so the first deploy creates all tables without needing pre-authored
+# migration files. Switch to `prisma migrate deploy` once you start
+# committing migrations under prisma/migrations.
+echo "[card2pay] Syncing database schema…"
+if [ -d "prisma/migrations" ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
+  npx prisma migrate deploy
+else
+  npx prisma db push --skip-generate --accept-data-loss
+fi
 
-export BUYCOIN_WIDGET_TOKEN BUYCOIN_EXCHANGER_URL WIDGET_CURRENCY_FROM \
-  WIDGET_CURRENCY_TO WIDGET_LOCALE WIDGET_LAYOUT WIDGET_THEME ALLOWED_REFERRER
+echo "[card2pay] Seeding admin user…"
+npx tsx prisma/seed.ts || echo "[card2pay] seed skipped/failed (continuing)"
 
-TEMPLATE="/usr/share/nginx/html/config.template.js"
-OUTPUT="/usr/share/nginx/html/config.js"
-
-envsubst \
-  '${BUYCOIN_WIDGET_TOKEN} ${BUYCOIN_EXCHANGER_URL} ${WIDGET_CURRENCY_FROM} ${WIDGET_CURRENCY_TO} ${WIDGET_LOCALE} ${WIDGET_LAYOUT} ${WIDGET_THEME} ${ALLOWED_REFERRER}' \
-  < "$TEMPLATE" > "$OUTPUT"
-
-echo "[card2pay] config.js generated (token set: $([ -n "$BUYCOIN_WIDGET_TOKEN" ] && echo yes || echo no))"
+echo "[card2pay] Starting server…"
+exec "$@"

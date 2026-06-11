@@ -1,0 +1,140 @@
+// Card2pay platform data model.
+// Users (merchants + admins) create payment links; each payment attempt
+// becomes an Order tracked by id and attributed to its creator.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MERCHANT
+}
+
+enum UserStatus {
+  PENDING // signed up, awaiting admin approval
+  ACTIVE
+  SUSPENDED
+}
+
+enum LinkType {
+  ONE_TIME // can only be paid successfully once
+  REUSABLE // can be paid many times (recurring/standing)
+}
+
+enum LinkStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum OrderStatus {
+  PENDING // created, deposit address issued
+  WAITING // waiting for the customer to pay
+  CONFIRMING // detected on-chain, awaiting confirmations
+  PARTIALLY_PAID
+  PAID // confirmed / finished
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  UNPAID // money received by us, merchant not paid out yet
+  PROCESSING
+  SENT // we manually sent the merchant their share
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  company      String?
+  passwordHash String
+  role         Role       @default(MERCHANT)
+  status       UserStatus @default(PENDING)
+
+  // How this merchant wants to receive their manual payouts.
+  payoutMethod  String? // e.g. "USDT TRC20", "Bank transfer (SEPA)"
+  payoutAddress String? // wallet address / IBAN
+  payoutNotes   String?
+
+  links  PaymentLink[]
+  orders Order[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("users")
+}
+
+model PaymentLink {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  description String?
+  amount      Decimal    @db.Decimal(18, 2)
+  currency    String     @default("USD")
+  type        LinkType   @default(ONE_TIME)
+  status      LinkStatus @default(ACTIVE)
+
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId String
+
+  orders Order[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([creatorId])
+  @@index([status])
+  @@map("payment_links")
+}
+
+model Order {
+  id        String @id @default(cuid())
+  reference String @unique // human-friendly id, e.g. C2P-8F3K2Q
+
+  link   PaymentLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  linkId String
+
+  // Denormalised so admin/merchant queries don't always need the join.
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId String
+
+  amount   Decimal @db.Decimal(18, 2)
+  currency String  @default("USD")
+
+  // NOWPayments leg.
+  payCurrency  String? // e.g. usdttrc20
+  payAmount    Decimal? @db.Decimal(36, 8)
+  payAddress   String?
+  nowPaymentId String?  @unique
+  actuallyPaid Decimal? @db.Decimal(36, 8)
+
+  status      OrderStatus  @default(PENDING)
+  payerEmail  String?
+  paidAt      DateTime?
+
+  // Manual payout to the merchant who created the link.
+  payoutStatus PayoutStatus @default(UNPAID)
+  payoutTxRef  String?
+  payoutAt     DateTime?
+  payoutNote   String?
+
+  lastIpn Json? // last raw IPN payload for audit
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([creatorId])
+  @@index([linkId])
+  @@index([status])
+  @@index([payoutStatus])
+  @@map("orders")
+}

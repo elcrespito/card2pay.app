@@ -1,17 +1,51 @@
 services:
-  card2pay:
-    build: .
-    image: card2pay-app
+  db:
+    image: postgres:16-alpine
     restart: unless-stopped
-    ports:
-      - "8080:80"
     environment:
-      # The BuyCoin (Extop) widget data-token. Set this in Coolify env / .env.
+      POSTGRES_USER: ${POSTGRES_USER:-card2pay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-card2pay}
+      POSTGRES_DB: ${POSTGRES_DB:-card2pay}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-card2pay}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://card2pay:card2pay@db:5432/card2pay?schema=public}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@card2pay.app}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe!2026}
+      ADMIN_NAME: ${ADMIN_NAME:-Card2pay Admin}
+      REQUIRE_APPROVAL: ${REQUIRE_APPROVAL:-true}
+      NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY}
+      NOWPAYMENTS_IPN_SECRET: ${NOWPAYMENTS_IPN_SECRET}
+      NOWPAYMENTS_PAY_CURRENCY: ${NOWPAYMENTS_PAY_CURRENCY:-usdttrc20}
+      NOWPAYMENTS_PRICE_CURRENCY: ${NOWPAYMENTS_PRICE_CURRENCY:-usd}
+      NOWPAYMENTS_FIXED_RATE: ${NOWPAYMENTS_FIXED_RATE:-true}
+      NOWPAYMENTS_FEE_PAID_BY_USER: ${NOWPAYMENTS_FEE_PAID_BY_USER:-false}
       BUYCOIN_WIDGET_TOKEN: ${BUYCOIN_WIDGET_TOKEN}
       BUYCOIN_EXCHANGER_URL: ${BUYCOIN_EXCHANGER_URL:-https://buycoin.online/x/calc/exchanger.js}
-      WIDGET_CURRENCY_FROM: ${WIDGET_CURRENCY_FROM:-EUR}
-      WIDGET_CURRENCY_TO: ${WIDGET_CURRENCY_TO:-USDT}
+      WIDGET_CURRENCY_FROM: ${WIDGET_CURRENCY_FROM}
+      WIDGET_CURRENCY_TO: ${WIDGET_CURRENCY_TO}
       WIDGET_LOCALE: ${WIDGET_LOCALE:-en}
       WIDGET_LAYOUT: ${WIDGET_LAYOUT:-vertical}
-      WIDGET_THEME: ${WIDGET_THEME:-light}
-      ALLOWED_REFERRER: ${ALLOWED_REFERRER:-peptides}
+      WIDGET_THEME: ${WIDGET_THEME}
+      ALLOWED_REFERRER: ${ALLOWED_REFERRER:-*}
+    ports:
+      - "3000:3000"
+
+volumes:
+  db-data:

@@ -138,7 +138,9 @@
   function start() {
     hideLoaderWhenReady();
 
-    if (!referrerAllowed()) return;
+    // Our own checkout iframe passes auto=1 to force the automation on.
+    var auto = getParam("auto") === "1";
+    if (!auto && !referrerAllowed()) return;
     if (walletValue === null || walletValue.trim() === "") return;
 
     waitForAmountInput();
