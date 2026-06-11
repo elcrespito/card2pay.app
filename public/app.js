@@ -1,13 +1,27 @@
 /*
  * Card2Pay — BuyCoin (Extop) payment automation.
  *
- * The widget itself is embedded by a parser-inserted <script> in index.html
+ * The widget itself is embedded by a parser-inserted <script> in the host page
  * (data-token comes from the runtime env config). This file:
- *   1. Reads `amount` and `wallet` from the URL.
- *      `wallet` is the destination address the crypto is settled to
- *      (e.g. the NOWPayments-generated deposit address for the merchant).
- *   2. Prefills the amount, relabels the action, sets the receiver wallet,
- *      and drives the widget to the hosted payment page (/x/ex/...).
+ *   1. Reads `amount`, `wallet` and `email` from the URL.
+ *      `amount`  is the crypto amount (in the payout currency, e.g. USDT) that
+ *                the merchant must receive — i.e. the NOWPayments `pay_amount`.
+ *      `wallet`  is the destination address the crypto is settled to
+ *                (the NOWPayments-generated deposit address for the merchant).
+ *      `email`   is the customer's email, forwarded to the BuyCoin widget.
+ *   2. Fills the **payout** ("You get") field with `amount` so the widget
+ *      back-computes the correct fiat charge. Filling the fiat "You send" field
+ *      with a crypto amount would overcharge the customer (the fiat→crypto rate
+ *      is not 1:1).
+ *   3. Sets the receiver wallet, forwards the email, relabels the action, and
+ *      drives the widget to the hosted payment page.
+ *
+ * IMPORTANT: the Extop widget uses React-controlled <input>s. Assigning
+ * `el.value = x` and firing a plain "input" event does NOT update React's
+ * internal state — React overwrites the field on its next render, which is why
+ * the amount/wallet appeared to "not take". We must call the native value
+ * setter on the prototype and dispatch both "input" and "change" so React's
+ * onChange runs against the new value.
  */
 (function () {
   "use strict";
@@ -24,6 +38,41 @@
 
   var amount = getParam("amount");
   var walletValue = getParam("wallet");
+  var emailValue = getParam("email");
+
+  // ---- React-safe value setter -------------------------------------------
+
+  function setNativeValue(el, value) {
+    if (!el) return;
+    var proto =
+      el.tagName === "TEXTAREA"
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+    var desc = Object.getOwnPropertyDescriptor(proto, "value");
+    if (desc && desc.set) {
+      desc.set.call(el, value);
+    } else {
+      el.value = value;
+    }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  // React can re-render and wipe a freshly-set value; re-assert a few times
+  // (only while it doesn't match) so the value reliably "sticks".
+  function setAndKeep(getEl, value, tries) {
+    var el = getEl();
+    if (!el) {
+      if (tries > 0) setTimeout(function () { setAndKeep(getEl, value, tries - 1); }, 300);
+      return;
+    }
+    if (String(el.value) !== String(value)) {
+      setNativeValue(el, value);
+    }
+    if (tries > 0) {
+      setTimeout(function () { setAndKeep(getEl, value, tries - 1); }, 300);
+    }
+  }
 
   function hideLoaderWhenReady() {
     var loader = d.getElementById("widgetLoader");
@@ -37,8 +86,8 @@
   }
 
   // ---- Referrer gate -----------------------------------------------------
-  // The automation only runs for traffic coming from the configured origin
-  // (e.g. "peptides"). Set ALLOWED_REFERRER to "*" (or empty) to disable.
+  // The automation only runs for traffic coming from the configured origin.
+  // Set ALLOWED_REFERRER to "*" (or empty) to disable.
 
   function referrerAllowed() {
     var allowed = (CONFIG.allowedReferrer || "").trim();
@@ -52,19 +101,39 @@
     }
   }
 
+  // ---- External email ----------------------------------------------------
+  // BuyCoin exposes window.ExtopWidget.setExternalUserEmail(); the value is
+  // appended to the hosted checkout URL as `external_user_email`. Poll until
+  // the global is available, then set it.
+
+  function applyExternalEmail() {
+    if (emailValue === null || emailValue.trim() === "") return;
+    try {
+      if (
+        window.ExtopWidget &&
+        typeof window.ExtopWidget.setExternalUserEmail === "function"
+      ) {
+        window.ExtopWidget.setExternalUserEmail(emailValue.trim());
+        return;
+      }
+    } catch (e) {}
+    setTimeout(applyExternalEmail, 300);
+  }
+
   // ---- Automation steps --------------------------------------------------
 
   function waitForAmountInput() {
-    var input = d.getElementById("paymentAmount");
+    // Drive the PAYOUT ("You get", crypto) field — `amount` is in the payout
+    // currency. The widget recomputes the fiat "You send" amount itself.
+    var payout = d.getElementById("payoutAmount");
 
-    if (!input) {
+    if (!payout) {
       setTimeout(waitForAmountInput, 500);
       return;
     }
 
-    if (amount !== null) {
-      input.value = amount;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (amount !== null && amount !== "") {
+      setAndKeep(function () { return d.getElementById("payoutAmount"); }, amount, 6);
     }
 
     var exchange = d.getElementById("exchange");
@@ -72,24 +141,18 @@
     if (exchange) {
       exchange.textContent = "Proceed to Payment";
 
-      exchange.onclick = function () {
+      exchange.addEventListener("click", function () {
+        applyExternalEmail();
         setWallet();
         setWalletLabel();
         setConfirmButtonText();
-      };
+      });
     }
   }
 
   function setWallet() {
-    var wallet = d.getElementsByName("wallet")[0];
-
-    if (!wallet) {
-      setTimeout(setWallet, 500);
-      return;
-    }
-
-    wallet.value = walletValue;
-    wallet.dispatchEvent(new Event("input", { bubbles: true }));
+    // The wallet field only renders on the checkout step (after "Buy now").
+    setAndKeep(function () { return d.getElementsByName("wallet")[0]; }, walletValue, 12);
   }
 
   function setWalletLabel() {
@@ -116,21 +179,6 @@
     }
 
     button.textContent = "Make payment";
-    setTimeout(clickButton, 500);
-  }
-
-  function clickButton() {
-    var button = d.getElementById("confirm");
-
-    if (!button) return;
-
-    window.open = function (url) {
-      if (url && url.includes("/x/ex/")) {
-        window.location.href = url;
-      }
-    };
-
-    button.click();
   }
 
   // ---- Boot --------------------------------------------------------------
@@ -143,6 +191,7 @@
     if (!auto && !referrerAllowed()) return;
     if (walletValue === null || walletValue.trim() === "") return;
 
+    applyExternalEmail();
     waitForAmountInput();
   }
 
