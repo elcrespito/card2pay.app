@@ -23,7 +23,9 @@ export async function createSession(userId: string): Promise<void> {
   const jar = await cookies();
   jar.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Mark Secure only when actually served over HTTPS, so auth also works on
+    // plain-HTTP preview URLs (e.g. Coolify sslip.io) while staying Secure in prod.
+    secure: env.appUrl.startsWith("https://"),
     sameSite: "lax",
     path: "/",
     maxAge: MAX_AGE_SECONDS,
