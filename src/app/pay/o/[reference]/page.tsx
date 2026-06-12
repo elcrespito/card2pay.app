@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { env } from "@/lib/env";
 import { Brand } from "@/components/Brand";
 import { formatMoney, formatCrypto } from "@/lib/format";
 import { OrderStatusWatcher } from "./OrderStatusWatcher";
+import { CheckoutMethods } from "./CheckoutMethods";
 
 export const dynamic = "force-dynamic";
 
@@ -74,15 +76,15 @@ export default async function OrderCheckoutPage({
           returnUrl={order.returnUrl ?? undefined}
         />
 
-        {!alreadyPaid && order.payAddress ? (
-          <div className="card overflow-hidden p-0">
-            <iframe
-              src={widgetSrc}
-              title="Card2pay secure checkout"
-              className="h-[680px] w-full border-0"
-              allow="clipboard-write; payment"
-            />
-          </div>
+        {!alreadyPaid && (order.payAddress || env.sandbox) ? (
+          <CheckoutMethods
+            reference={order.reference}
+            payAddress={order.payAddress ?? ""}
+            payAmount={order.payAmount ? order.payAmount.toString() : ""}
+            payCurrency={order.payCurrency ?? ""}
+            widgetSrc={widgetSrc}
+            sandbox={env.sandbox}
+          />
         ) : null}
 
         <p className="mt-5 text-center text-xs text-white/30">

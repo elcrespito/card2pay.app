@@ -39,6 +39,11 @@ export const env = {
   // Whether new merchant sign-ups need admin approval before creating links.
   requireApproval: (process.env.REQUIRE_APPROVAL ?? "true") === "true",
 
+  // Test/sandbox mode: exposes a "mark as paid" button on checkout and a
+  // sandbox endpoint so the full order -> paid -> site-callback loop can be
+  // exercised without a real NOWPayments payment. MUST stay false in prod.
+  sandbox: (process.env.SANDBOX_MODE ?? "false") === "true",
+
   // BuyCoin widget config surfaced to the embedded widget.html via /api/widget-config.
   widget: {
     token: process.env.BUYCOIN_WIDGET_TOKEN || "",

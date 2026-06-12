@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { generateOrderReference } from "@/lib/ids";
 import { createPayment } from "@/lib/nowpayments";
+import { dispatchPaidCallback } from "@/lib/callbacks";
 import type { MerchantSite, Order } from "@prisma/client";
 import type { OrderPayload } from "@/lib/gateway";
 
@@ -109,4 +110,49 @@ export async function startSiteOrder(
   });
 
   return ensurePayment(order, description);
+}
+
+/**
+ * Transition an order to PAID and run the same side effects the NOWPayments IPN
+ * does: close one-time links and notify the originating client site. Idempotent
+ * (a no-op if already paid). Used by the IPN handler and the sandbox test-pay.
+ */
+export async function settleOrderPaid(
+  orderId: string,
+  opts: { actuallyPaid?: number } = {}
+): Promise<void> {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order || order.status === "PAID") return;
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      status: "PAID",
+      paidAt: order.paidAt ?? new Date(),
+      actuallyPaid:
+        opts.actuallyPaid ?? order.actuallyPaid ?? order.payAmount ?? undefined,
+      callbackStatus:
+        order.siteId || order.callbackUrl ? "PENDING" : order.callbackStatus,
+    },
+  });
+
+  if (order.linkId) {
+    const link = await prisma.paymentLink.findUnique({
+      where: { id: order.linkId },
+    });
+    if (link && link.type === "ONE_TIME" && link.status === "ACTIVE") {
+      await prisma.paymentLink.update({
+        where: { id: link.id },
+        data: { status: "DISABLED" },
+      });
+    }
+  }
+
+  if (order.siteId) {
+    try {
+      await dispatchPaidCallback(order.id);
+    } catch {
+      // Delivery outcome is recorded on the order; never throw here.
+    }
+  }
 }
