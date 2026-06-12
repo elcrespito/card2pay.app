@@ -19,7 +19,11 @@ export async function GET() {
 
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: "desc" },
-    include: { link: true, creator: { select: { name: true, email: true } } },
+    include: {
+      link: true,
+      site: { select: { name: true } },
+      creator: { select: { name: true, email: true } },
+    },
   });
 
   const header = [
@@ -48,7 +52,7 @@ export async function GET() {
       o.createdAt.toISOString(),
       o.creator.name,
       o.creator.email,
-      o.link.title,
+      o.link?.title ?? o.site?.name ?? o.description ?? "",
       toNumber(o.amount).toFixed(2),
       o.currency,
       o.payAmount ? o.payAmount.toString() : "",

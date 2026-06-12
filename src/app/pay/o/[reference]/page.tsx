@@ -15,12 +15,18 @@ export default async function OrderCheckoutPage({
 
   const order = await prisma.order.findUnique({
     where: { reference },
-    include: { link: { include: { creator: { select: { name: true, company: true } } } } },
+    include: {
+      link: { include: { creator: { select: { name: true, company: true } } } },
+      site: { select: { name: true } },
+    },
   });
 
   if (!order) notFound();
 
-  const merchant = order.link.creator.company || order.link.creator.name;
+  const merchant = order.link
+    ? order.link.creator.company || order.link.creator.name
+    : order.site?.name || "Merchant";
+  const title = order.link?.title || order.description || "Payment";
   const widgetParams = new URLSearchParams();
   if (order.payAmount) widgetParams.set("amount", order.payAmount.toString());
   if (order.payAddress) widgetParams.set("wallet", order.payAddress);
@@ -47,7 +53,7 @@ export default async function OrderCheckoutPage({
               <p className="text-xs uppercase tracking-wide text-white/40">
                 Paying {merchant}
               </p>
-              <p className="mt-0.5 text-sm text-white/70">{order.link.title}</p>
+              <p className="mt-0.5 text-sm text-white/70">{title}</p>
             </div>
             <div className="text-right">
               <p className="text-2xl font-semibold text-white">
@@ -62,7 +68,11 @@ export default async function OrderCheckoutPage({
           </div>
         </div>
 
-        <OrderStatusWatcher reference={order.reference} initialStatus={order.status} />
+        <OrderStatusWatcher
+          reference={order.reference}
+          initialStatus={order.status}
+          returnUrl={order.returnUrl ?? undefined}
+        />
 
         {!alreadyPaid && order.payAddress ? (
           <div className="card overflow-hidden p-0">

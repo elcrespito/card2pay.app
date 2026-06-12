@@ -10,7 +10,7 @@ export default async function MerchantOrdersPage() {
     where: { creatorId: user.id },
     orderBy: { createdAt: "desc" },
     take: 200,
-    include: { link: true },
+    include: { link: true, site: { select: { name: true } } },
   });
 
   return (

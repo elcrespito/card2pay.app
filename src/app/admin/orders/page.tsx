@@ -30,7 +30,11 @@ export default async function AdminOrders({
     where: active.where,
     orderBy: { createdAt: "desc" },
     take: 300,
-    include: { link: true, creator: { select: { name: true, email: true } } },
+    include: {
+      link: true,
+      site: { select: { name: true } },
+      creator: { select: { name: true, email: true } },
+    },
   });
 
   return (

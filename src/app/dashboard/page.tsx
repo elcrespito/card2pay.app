@@ -20,7 +20,7 @@ export default async function DashboardOverview() {
       where: { creatorId: user.id },
       orderBy: { createdAt: "desc" },
       take: 6,
-      include: { link: true },
+      include: { link: true, site: { select: { name: true } } },
     }),
   ]);
 
@@ -87,7 +87,9 @@ export default async function DashboardOverview() {
                 {recent.map((o) => (
                   <tr key={o.id}>
                     <td className="table-td font-mono text-xs text-white">{o.reference}</td>
-                    <td className="table-td">{o.link.title}</td>
+                    <td className="table-td">
+                      {o.link?.title ?? o.site?.name ?? o.description ?? "—"}
+                    </td>
                     <td className="table-td">{formatMoney(o.amount, o.currency)}</td>
                     <td className="table-td">
                       <OrderStatusBadge status={o.status} />

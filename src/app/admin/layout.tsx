@@ -6,6 +6,7 @@ const NAV: NavItem[] = [
   { href: "/admin/merchants", label: "Merchants" },
   { href: "/admin/links", label: "Payment links" },
   { href: "/admin/orders", label: "Orders & payouts" },
+  { href: "/admin/integrations", label: "Integrations" },
 ];
 
 export default async function AdminLayout({

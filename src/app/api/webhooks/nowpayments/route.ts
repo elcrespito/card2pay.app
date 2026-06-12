@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { verifyIpnSignature, mapPaymentStatus } from "@/lib/nowpayments";
+import { dispatchPaidCallback } from "@/lib/callbacks";
 import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -47,25 +48,42 @@ export async function POST(req: Request) {
   }
 
   const status = mapPaymentStatus(data.payment_status ?? "");
+  const wasPaid = order.status === "PAID";
   const updates: Prisma.OrderUpdateInput = {
     status,
     lastIpn: data as unknown as Prisma.InputJsonValue,
   };
   if (data.actually_paid != null) updates.actuallyPaid = data.actually_paid;
   if (status === "PAID" && !order.paidAt) updates.paidAt = new Date();
+  // Queue the site notification on the first transition into PAID.
+  if (status === "PAID" && !wasPaid && (order.siteId || order.callbackUrl)) {
+    updates.callbackStatus = "PENDING";
+  }
 
   await prisma.order.update({ where: { id: order.id }, data: updates });
 
-  // Close one-time links once paid so they can't be reused.
   if (status === "PAID") {
-    const link = await prisma.paymentLink.findUnique({
-      where: { id: order.linkId },
-    });
-    if (link && link.type === "ONE_TIME" && link.status === "ACTIVE") {
-      await prisma.paymentLink.update({
-        where: { id: link.id },
-        data: { status: "DISABLED" },
+    // Close one-time links once paid so they can't be reused.
+    if (order.linkId) {
+      const link = await prisma.paymentLink.findUnique({
+        where: { id: order.linkId },
       });
+      if (link && link.type === "ONE_TIME" && link.status === "ACTIVE") {
+        await prisma.paymentLink.update({
+          where: { id: link.id },
+          data: { status: "DISABLED" },
+        });
+      }
+    }
+
+    // Notify the originating client site (idempotent; safe to retry). Only on
+    // the first transition into PAID so we don't double-notify on repeat IPNs.
+    if (!wasPaid && order.siteId) {
+      try {
+        await dispatchPaidCallback(order.id);
+      } catch {
+        // Delivery failure is recorded on the order; never fail the IPN ack.
+      }
     }
   }
 

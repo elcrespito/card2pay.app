@@ -1,9 +1,10 @@
-import type { Order, PaymentLink, User } from "@prisma/client";
+import type { Order, PaymentLink, MerchantSite, User } from "@prisma/client";
 import { OrderStatusBadge, PayoutStatusBadge } from "@/components/badges";
 import { formatMoney, formatCrypto, formatDate, truncateMiddle } from "@/lib/format";
 
 type OrderRow = Order & {
-  link: PaymentLink;
+  link?: PaymentLink | null;
+  site?: Pick<MerchantSite, "name"> | null;
   creator?: Pick<User, "name" | "email"> | null;
 };
 
@@ -22,7 +23,7 @@ export function OrdersTable({
         <thead className="border-b border-white/[0.06]">
           <tr>
             <th className="table-th">Order</th>
-            <th className="table-th">Link</th>
+            <th className="table-th">Source</th>
             {showCreator ? <th className="table-th">Merchant</th> : null}
             <th className="table-th">Amount</th>
             <th className="table-th">Deposit</th>
@@ -43,7 +44,22 @@ export function OrdersTable({
                   </span>
                 ) : null}
               </td>
-              <td className="table-td">{o.link.title}</td>
+              <td className="table-td">
+                {o.link ? (
+                  o.link.title
+                ) : o.site ? (
+                  <span>
+                    {o.site.name}
+                    {o.externalOrderId ? (
+                      <span className="block text-[11px] text-white/40">
+                        #{o.externalOrderId}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  o.description ?? "—"
+                )}
+              </td>
               {showCreator ? (
                 <td className="table-td">
                   <span className="block text-white/80">{o.creator?.name}</span>

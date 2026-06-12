@@ -15,9 +15,11 @@ const LABELS: Partial<Record<OrderStatus, { text: string; tone: string }>> = {
 export function OrderStatusWatcher({
   reference,
   initialStatus,
+  returnUrl,
 }: {
   reference: string;
   initialStatus: OrderStatus;
+  returnUrl?: string;
 }) {
   const [status, setStatus] = useState<OrderStatus>(initialStatus);
 
@@ -54,10 +56,18 @@ export function OrderStatusWatcher({
         <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
           ✓
         </span>
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-semibold text-emerald-300">Payment confirmed</p>
           <p className="text-xs text-white/50">Thank you — your payment is complete.</p>
         </div>
+        {returnUrl ? (
+          <a
+            href={returnUrl}
+            className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/30"
+          >
+            Return to store
+          </a>
+        ) : null}
       </div>
     );
   }

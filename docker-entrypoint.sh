@@ -22,12 +22,13 @@ while [ $i -lt 30 ]; do
   sleep 2
 done
 
-# Only apply the schema if our tables are missing (idempotent on restarts).
+# Fresh DB -> full schema; existing DB -> idempotent incremental upgrade.
 HAS_TABLES=$(psql "$PSQL_URL" -tAc "SELECT to_regclass('public.users') IS NOT NULL" 2>/dev/null)
 if [ "$HAS_TABLES" = "t" ]; then
-  echo "[card2pay] Schema already present — skipping init."
+  echo "[card2pay] Base schema present — applying incremental upgrade (idempotent)…"
+  psql "$PSQL_URL" -v ON_ERROR_STOP=0 -f prisma/upgrade.sql || echo "[card2pay] upgrade reported errors (continuing)"
 else
-  echo "[card2pay] Applying schema from prisma/init.sql…"
+  echo "[card2pay] Fresh DB — applying full schema from prisma/init.sql…"
   psql "$PSQL_URL" -v ON_ERROR_STOP=0 -f prisma/init.sql || echo "[card2pay] schema apply reported errors (continuing)"
 fi
 

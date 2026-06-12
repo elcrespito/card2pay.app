@@ -26,7 +26,11 @@ export default async function AdminOverview() {
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
       take: 8,
-      include: { link: true, creator: { select: { name: true, email: true } } },
+      include: {
+        link: true,
+        site: { select: { name: true } },
+        creator: { select: { name: true, email: true } },
+      },
     }),
   ]);
 
