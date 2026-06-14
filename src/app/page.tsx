@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { SiteFooter } from "@/components/SiteFooter";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,7 @@ export default async function LandingPage({
             Card2pay is not available to U.S. citizens or residents.
           </p>
         </div>
+        <SiteFooter compact />
       </div>
     );
   }
@@ -222,17 +224,7 @@ export default async function LandingPage({
         </div>
       </section>
 
-      <footer className="relative border-t border-white/[0.06]">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 sm:flex-row">
-          <Brand />
-          <a href="mailto:info@card2pay.app" className="text-sm text-white/50 hover:text-white">
-            info@card2pay.app
-          </a>
-          <p className="text-xs text-white/30">
-            © {new Date().getFullYear()} Card2pay. All rights reserved.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

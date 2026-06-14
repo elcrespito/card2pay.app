@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export default function AuthLayout({
   children,
@@ -24,6 +25,7 @@ export default function AuthLayout({
           </Link>
         </p>
       </div>
+      <SiteFooter compact />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { Brand } from "@/components/Brand";
+import { SiteFooter } from "@/components/SiteFooter";
 import { formatMoney, formatCrypto } from "@/lib/format";
 import { OrderStatusWatcher } from "./OrderStatusWatcher";
 import { CheckoutMethods } from "./CheckoutMethods";
@@ -92,6 +93,7 @@ export default async function OrderCheckoutPage({
           updates automatically once payment is confirmed.
         </p>
       </div>
+      <SiteFooter compact />
     </div>
   );
 }
