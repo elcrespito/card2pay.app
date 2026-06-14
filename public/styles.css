@@ -395,6 +395,21 @@ a {
   font-size: 13px;
 }
 
+.footer__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.footer__nav a {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.footer__nav a:hover {
+  color: var(--accent);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 880px) {
   .hero__inner {
