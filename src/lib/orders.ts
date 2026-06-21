@@ -62,7 +62,8 @@ async function ensurePayment(order: Order, description: string): Promise<Order> 
  */
 export async function startSiteOrder(
   site: MerchantSite,
-  payload: OrderPayload
+  payload: OrderPayload,
+  opts?: { skipPayment?: boolean }
 ): Promise<Order> {
   const existing = await prisma.order.findUnique({
     where: {
@@ -88,7 +89,12 @@ export async function startSiteOrder(
         payerEmail: payload.email ?? existing.payerEmail,
       },
     });
-    return ensurePayment(refreshed, description);
+    return opts?.skipPayment && env.sandbox
+      ? prisma.order.update({
+          where: { id: refreshed.id },
+          data: { status: "WAITING" },
+        })
+      : ensurePayment(refreshed, description);
   }
 
   const reference = await uniqueReference();
@@ -108,6 +114,13 @@ export async function startSiteOrder(
       status: "PENDING",
     },
   });
+
+  if (opts?.skipPayment && env.sandbox) {
+    return prisma.order.update({
+      where: { id: order.id },
+      data: { status: "WAITING" },
+    });
+  }
 
   return ensurePayment(order, description);
 }
