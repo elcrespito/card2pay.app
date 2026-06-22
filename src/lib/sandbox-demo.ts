@@ -57,6 +57,46 @@ export async function ensureSandboxDemoSite() {
   });
 }
 
+/** Find or create a merchant site for sandbox store integration testing. */
+export async function ensureMerchantSite(opts: {
+  name: string;
+  domain: string;
+  callbackUrl: string;
+}) {
+  const existing = await prisma.merchantSite.findFirst({
+    where: {
+      OR: [{ domain: opts.domain }, { name: opts.name }],
+    },
+  });
+  if (existing) {
+    if (existing.callbackUrl !== opts.callbackUrl) {
+      return prisma.merchantSite.update({
+        where: { id: existing.id },
+        data: { callbackUrl: opts.callbackUrl, domain: opts.domain },
+      });
+    }
+    return existing;
+  }
+
+  const admin = await prisma.user.findFirst({
+    where: { role: "ADMIN", status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!admin) throw new Error("No admin user found.");
+
+  const { apiKey, apiSecret } = generateSiteCredentials();
+  return prisma.merchantSite.create({
+    data: {
+      name: opts.name,
+      domain: opts.domain,
+      callbackUrl: opts.callbackUrl,
+      apiKey,
+      apiSecret,
+      ownerId: admin.id,
+    },
+  });
+}
+
 /**
  * One-click end-to-end sandbox test:
  *   hash → decode → order → simulate PAID → signed callback → test sink

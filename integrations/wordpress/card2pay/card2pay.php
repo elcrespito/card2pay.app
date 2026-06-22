@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Card2pay for WooCommerce
  * Description: Accept payments via Card2pay. Sends a signed/encrypted order hash to the Card2pay hosted checkout and marks the order paid on the signed callback.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Card2pay
  * Requires Plugins: woocommerce
  *
@@ -67,16 +67,23 @@ function card2pay_init_gateway()
                 'base_url'    => array(
                     'title'       => 'Card2pay URL',
                     'type'        => 'text',
-                    'description' => 'e.g. https://card2pay.app (or your test URL).',
-                    'default'     => '',
+                    'description' => 'Test: https://dev.card2pay.app — Production: https://card2pay.app',
+                    'default'     => 'https://dev.card2pay.app',
                 ),
                 'api_key'     => array(
-                    'title' => 'API key',
-                    'type'  => 'text',
+                    'title'       => 'API key',
+                    'type'        => 'text',
+                    'description' => 'From Card2pay dashboard → Sites (starts with c2p_).',
                 ),
                 'api_secret'  => array(
-                    'title' => 'API secret',
-                    'type'  => 'password',
+                    'title'       => 'API secret',
+                    'type'        => 'password',
+                    'description' => 'Keep secret. Used to sign the order hash and verify callbacks.',
+                ),
+                'webhook_info' => array(
+                    'title'       => 'Webhook URL',
+                    'type'        => 'title',
+                    'description' => 'Card2pay POSTs here when payment is confirmed (also sent per order automatically):<br><code>' . esc_html(rest_url('card2pay/v1/callback')) . '</code>',
                 ),
             );
         }
@@ -190,8 +197,11 @@ function card2pay_handle_callback(WP_REST_Request $request)
     }
 
     if (($data['status'] ?? '') === 'paid' && !$order->is_paid()) {
-        $order->payment_complete(isset($data['reference']) ? $data['reference'] : '');
-        $order->add_order_note('Card2pay confirmed payment ' . ($data['reference'] ?? ''));
+        $txn = isset($data['reference']) ? (string) $data['reference'] : '';
+        $order->payment_complete($txn);
+        $order->add_order_note(
+            'Card2pay payment confirmed' . ($txn ? ' (' . $txn . ')' : '') . '.'
+        );
     }
 
     return new WP_REST_Response('ok', 200);
