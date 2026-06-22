@@ -69,10 +69,18 @@ export async function ensureMerchantSite(opts: {
     },
   });
   if (existing) {
-    if (existing.callbackUrl !== opts.callbackUrl) {
+    if (
+      existing.callbackUrl !== opts.callbackUrl ||
+      existing.domain !== opts.domain ||
+      existing.name !== opts.name
+    ) {
       return prisma.merchantSite.update({
         where: { id: existing.id },
-        data: { callbackUrl: opts.callbackUrl, domain: opts.domain },
+        data: {
+          callbackUrl: opts.callbackUrl,
+          domain: opts.domain,
+          name: opts.name,
+        },
       });
     }
     return existing;

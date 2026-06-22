@@ -1,62 +1,38 @@
-# Card2pay → kronen-peptide.net (dev test)
+# Kronen Secure Pay → kronen-peptide.net (dev test)
 
-## 1. Site registered on dev.card2pay
+Plugin zip: **kronen-secure-pay.zip**
 
-Use these in WooCommerce → Payments → Card2pay:
+- WP plugin name: **Kronen Secure Pay**
+- Checkout label: **Sichere Online-Zahlung** (editable in settings)
+- Webhook: `https://kronen-peptide.net/wp-json/kronen-pay/v1/callback`
+
+## Card2pay credentials (dev)
 
 | Setting | Value |
 |---------|--------|
-| **Card2pay URL** | `https://dev.card2pay.app` |
-| **API key** | *(from dashboard or provision API — see below)* |
-| **API secret** | *(same)* |
-| **Enable** | Yes (for testing only) |
+| Payment platform URL | `https://dev.card2pay.app` |
+| API key | `c2p_5174f7819378ad3268839e90` |
+| API secret | `7a37f02e6e4c68d55a6fc49c6c55a4c34242e225005deac10bd419c44f5eb450` |
 
-**Webhook URL** (shown in plugin settings):
-
-```
-https://kronen-peptide.net/wp-json/card2pay/v1/callback
-```
-
-Register / refresh the site in Card2pay:
+Update site registration:
 
 ```bash
 curl -X POST https://dev.card2pay.app/api/test/provision-site \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Kronen Peptide NET",
+    "name": "Kronen Peptide",
     "domain": "kronen-peptide.net",
-    "callbackUrl": "https://kronen-peptide.net/wp-json/card2pay/v1/callback"
+    "callbackUrl": "https://kronen-peptide.net/wp-json/kronen-pay/v1/callback"
   }'
 ```
 
-Response includes `apiKey` and `apiSecret` for the plugin.
+## Install
 
-## 2. Install plugin
+1. Upload **kronen-secure-pay.zip** → Activate **Kronen Secure Pay**
+2. WooCommerce → Payments → **Kronen Secure Pay** → keys + Enable
 
-1. Upload `card2pay-wp-plugin.zip` to WP → Plugins → Add New → Upload.
-2. Activate **Card2pay for WooCommerce**.
-3. WooCommerce → Settings → Payments → Card2pay → paste URL + keys → Save.
+## Test
 
-## 3. Test order (no real payment)
-
-1. Place a test order on kronen-peptide.net, pay with **Card2pay**.
-2. You are redirected to `https://dev.card2pay.app/pay/h/...` then checkout.
-3. On checkout click **「Simulate payment (mark as paid)」** (sandbox only).
-4. Card2pay POSTs `order.paid` to your WP webhook → WooCommerce order becomes **Processing/Completed**.
-
-## 4. Verify
-
-- **dev.card2pay.app** → Admin → Integrations → callback log (signature: valid).
-- **WooCommerce** → order note: `Card2pay payment confirmed (C2P-...)`.
-
-## Flow
-
-```
-WooCommerce checkout
-  → plugin builds hash
-  → dev.card2pay.app/pay/h/{hash}
-  → order + checkout
-  → [Simulate payment]
-  → POST kronen-peptide.net/wp-json/card2pay/v1/callback
-  → order paid in WooCommerce
-```
+1. Order on kronen-peptide.net → **Sichere Online-Zahlung**
+2. dev.card2pay.app checkout → **Simulate payment**
+3. Order paid in WooCommerce
