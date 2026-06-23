@@ -7,42 +7,42 @@ export const dynamic = "force-dynamic";
 
 const FEATURES = [
   {
-    icon: "🔗",
-    title: "Pay-by-link",
-    body: "Create branded payment links in seconds and share them with anyone, anywhere.",
+    icon: "₿",
+    title: "NOWPayments crypto",
+    body: "Each order gets a unique deposit address and QR code. Confirmed on-chain automatically.",
   },
   {
-    icon: "💳",
-    title: "Card-to-crypto",
-    body: "Your customers pay by card; funds settle to your account as crypto, automatically.",
+    icon: "🔗",
+    title: "WooCommerce & pay-by-link",
+    body: "Connect your store or share payment links — every order lands in one dashboard.",
   },
   {
     icon: "📊",
     title: "Unified tracking",
-    body: "Every order is tracked by ID and attributed to its creator across your whole team.",
+    body: "Every order is tracked by reference ID and attributed to its merchant site.",
   },
   {
     icon: "🛡️",
-    title: "Bank-grade security",
-    body: "Layered safeguards and signed webhooks protect every transaction end to end.",
+    title: "Signed webhooks",
+    body: "When payment confirms we POST to your store with HMAC-SHA256 — order marked paid.",
   },
   {
     icon: "⚡",
-    title: "Fast settlement",
-    body: "Payments confirm in minutes via our payment network, around the clock.",
+    title: "Instant checkout",
+    body: "Customer lands from your plugin → deposit address is generated → they pay → webhook fires.",
   },
   {
     icon: "🤝",
     title: "Managed payouts",
-    body: "We reconcile incoming payments and pay you out — you focus on selling.",
+    body: "Funds settle to Card2pay; we reconcile and pay merchants to their configured wallet.",
   },
 ];
 
 const STEPS = [
-  { n: "01", t: "Create a link", d: "Set an amount and whether it's one-time or reusable." },
-  { n: "02", t: "Share it", d: "Send the link to your customer by email, chat, or invoice." },
-  { n: "03", t: "Get paid", d: "They pay by card, we confirm on-chain and track the order." },
-  { n: "04", t: "Receive payout", d: "We settle your balance to your wallet or bank." },
+  { n: "01", t: "Register", d: "Create your merchant account and connect your WooCommerce site." },
+  { n: "02", t: "Customer pays", d: "Plugin redirects to Card2pay — we generate a NOWPayments deposit address." },
+  { n: "03", t: "We confirm", d: "IPN marks the order paid and sends a signed webhook to your store." },
+  { n: "04", t: "You get paid", d: "We settle your balance to your wallet on a schedule you agree with us." },
 ];
 
 export default async function LandingPage({
@@ -122,17 +122,17 @@ export default async function LandingPage({
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-500/80">
-              Enterprise payment platform
+              Crypto payment platform
             </p>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tight text-white md:text-6xl">
-              Payment links your
+              Accept crypto.
               <br />
-              business can rely on.
+              Webhook your store.
             </h1>
             <p className="mt-6 max-w-md text-lg text-white/60">
-              Card2pay lets your team create pay-by-links, accept card payments,
-              and settle in crypto — with every order tracked and reconciled in
-              one place.
+              Card2pay generates a NOWPayments deposit for every order, tracks
+              payment in your dashboard, and notifies your WooCommerce store when
+              it&apos;s paid. Register and connect your site.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href={user ? dashHref : "/signup"} className="btn-primary px-5 py-3">
@@ -145,12 +145,30 @@ export default async function LandingPage({
             </p>
           </div>
 
-          <div className="card overflow-hidden p-0">
-            <iframe
-              src="/widget.html"
-              title="Card2pay checkout preview"
-              className="h-[560px] w-full border-0"
-            />
+          <div className="card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-500/80">
+              How checkout works
+            </p>
+            <div className="mt-5 space-y-3 text-sm text-white/60">
+              <p>
+                <span className="font-medium text-white">1.</span> Customer clicks
+                pay on your WooCommerce store
+              </p>
+              <p>
+                <span className="font-medium text-white">2.</span> Card2pay creates
+                a NOWPayments deposit address + QR
+              </p>
+              <p>
+                <span className="font-medium text-white">3.</span> Payment confirms
+                → signed webhook → order marked paid
+              </p>
+            </div>
+            <Link
+              href={user ? dashHref : "/signup"}
+              className="btn-primary mt-6 block w-full py-3 text-center"
+            >
+              {user ? "Open dashboard" : "Register & start"}
+            </Link>
           </div>
         </div>
       </section>
@@ -178,7 +196,7 @@ export default async function LandingPage({
           How it works
         </p>
         <h2 className="mt-3 text-center text-3xl font-semibold tracking-tight text-white">
-          From link to payout in four steps
+          From signup to paid order
         </h2>
         <div className="mt-10 grid gap-4 md:grid-cols-4">
           {STEPS.map((s) => (
@@ -203,7 +221,7 @@ export default async function LandingPage({
             },
             {
               q: "How do my customers pay?",
-              a: "They open your payment link and pay by card. Funds are converted and settled as crypto to our managed account, tracked against the order.",
+              a: "They are redirected to Card2pay checkout with a unique crypto deposit address (USDT etc.). Once NOWPayments confirms the payment, your store receives a signed webhook.",
             },
             {
               q: "When do I get paid?",

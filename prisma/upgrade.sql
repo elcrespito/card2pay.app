@@ -66,3 +66,8 @@ DO $$ BEGIN
   ALTER TABLE "orders" ADD CONSTRAINT "orders_siteId_fkey"
     FOREIGN KEY ("siteId") REFERENCES "merchant_sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- PayGate card checkout columns
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "paygateAddressIn" TEXT;
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "paygateNonce" TEXT;
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "paygateExpectedUsd" DECIMAL(18,8);

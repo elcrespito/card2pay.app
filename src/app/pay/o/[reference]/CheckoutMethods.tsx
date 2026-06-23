@@ -16,19 +16,15 @@ export function CheckoutMethods({
   payAddress,
   payAmount,
   payCurrency,
-  widgetSrc,
   sandbox,
 }: {
   reference: string;
   payAddress: string;
   payAmount: string;
   payCurrency: string;
-  widgetSrc: string;
   sandbox: boolean;
 }) {
-  const [method, setMethod] = useState<"crypto" | "card">("crypto");
   const [paying, setPaying] = useState(false);
-
   const hasAddress = payAddress !== "";
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(
     payAddress
@@ -54,96 +50,58 @@ export function CheckoutMethods({
 
   return (
     <div className="card">
-      {/* Method choice: card (cash) or crypto */}
-      <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-1">
-        <button
-          type="button"
-          onClick={() => setMethod("crypto")}
-          className={
-            "rounded-lg px-3 py-2 text-sm font-medium transition " +
-            (method === "crypto"
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white/80")
-          }
-        >
-          Pay with crypto
-        </button>
-        <button
-          type="button"
-          onClick={() => setMethod("card")}
-          className={
-            "rounded-lg px-3 py-2 text-sm font-medium transition " +
-            (method === "card"
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white/80")
-          }
-        >
-          Pay with card
-        </button>
-      </div>
+      {hasAddress ? (
+        <div>
+          <p className="mb-3 text-sm text-white/60">
+            Send exactly this amount to the address below. Your order updates
+            automatically once the network confirms it, and your store receives a
+            webhook notification.
+          </p>
 
-      {method === "crypto" ? (
-        hasAddress ? (
-          <div>
-            <p className="mb-3 text-sm text-white/60">
-              Send exactly this amount to the address below. Your order updates
-              automatically once the network confirms it.
-            </p>
-
-            <div className="mb-3 rounded-lg border border-white/10 bg-ink-850 p-3">
-              <p className="text-xs uppercase tracking-wide text-white/40">Amount</p>
-              <div className="mt-1 flex items-center gap-2">
-                <code className="flex-1 text-sm text-white">
-                  {payAmount} {prettyCurrency(payCurrency)}
-                </code>
-                <CopyButton value={payAmount} />
-              </div>
-            </div>
-
-            <div className="mb-4 rounded-lg border border-white/10 bg-ink-850 p-3">
-              <p className="text-xs uppercase tracking-wide text-white/40">
-                Deposit address
-              </p>
-              <div className="mt-1 flex items-center gap-2">
-                <code className="flex-1 break-all text-sm text-white/80">
-                  {payAddress}
-                </code>
-                <CopyButton value={payAddress} />
-              </div>
-            </div>
-
-            <div className="flex justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrSrc}
-                alt="Deposit address QR"
-                width={180}
-                height={180}
-                className="rounded-lg bg-white p-2"
-              />
+          <div className="mb-3 rounded-lg border border-white/10 bg-ink-850 p-3">
+            <p className="text-xs uppercase tracking-wide text-white/40">Amount</p>
+            <div className="mt-1 flex items-center gap-2">
+              <code className="flex-1 text-sm text-white">
+                {payAmount} {prettyCurrency(payCurrency)}
+              </code>
+              <CopyButton value={payAmount} />
             </div>
           </div>
-        ) : (
-          <p className="py-6 text-center text-sm text-white/50">
-            A deposit address is not available yet. Use the test button below to
-            mark this order as paid.
-          </p>
-        )
-      ) : (
-        <div className="overflow-hidden rounded-lg">
-          <iframe
-            src={widgetSrc}
-            title="Card2pay secure checkout"
-            className="h-[680px] w-full border-0"
-            allow="clipboard-write; payment"
-          />
+
+          <div className="mb-4 rounded-lg border border-white/10 bg-ink-850 p-3">
+            <p className="text-xs uppercase tracking-wide text-white/40">
+              Deposit address
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <code className="flex-1 break-all text-sm text-white/80">
+                {payAddress}
+              </code>
+              <CopyButton value={payAddress} />
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={qrSrc}
+              alt="Deposit address QR"
+              width={180}
+              height={180}
+              className="rounded-lg bg-white p-2"
+            />
+          </div>
         </div>
+      ) : (
+        <p className="py-6 text-center text-sm text-white/50">
+          Generating your deposit address… refresh in a moment, or use the test
+          button below.
+        </p>
       )}
 
       {sandbox ? (
         <div className="mt-4 rounded-lg border border-dashed border-amber-400/40 bg-amber-400/[0.06] p-3">
           <p className="mb-2 text-xs text-amber-200/80">
-            Test environment — no real payment is taken.
+            Test mode — simulate a confirmed payment without sending crypto.
           </p>
           <button
             type="button"

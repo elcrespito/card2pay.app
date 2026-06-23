@@ -30,16 +30,6 @@ export default async function OrderCheckoutPage({
     ? order.link.creator.company || order.link.creator.name
     : order.site?.name || "Merchant";
   const title = order.link?.title || order.description || "Payment";
-  const widgetParams = new URLSearchParams();
-  if (order.payAmount) widgetParams.set("amount", order.payAmount.toString());
-  if (order.payAddress) widgetParams.set("wallet", order.payAddress);
-  if (order.payerEmail) {
-    widgetParams.set("email", order.payerEmail);
-    widgetParams.set("external_user_email", order.payerEmail);
-  }
-  widgetParams.set("auto", "1");
-  const widgetSrc = `/widget.html?${widgetParams.toString()}`;
-
   const alreadyPaid = order.status === "PAID";
 
   return (
@@ -83,7 +73,6 @@ export default async function OrderCheckoutPage({
             payAddress={order.payAddress ?? ""}
             payAmount={order.payAmount ? order.payAmount.toString() : ""}
             payCurrency={order.payCurrency ?? ""}
-            widgetSrc={widgetSrc}
             sandbox={env.sandbox}
           />
         ) : null}

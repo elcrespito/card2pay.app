@@ -184,6 +184,11 @@ model Order {
 
   lastIpn Json? // last raw IPN payload for audit
 
+  // PayGate card checkout leg (payments.card2pay white-label).
+  paygateAddressIn String?
+  paygateNonce       String?
+  paygateExpectedUsd Decimal? @db.Decimal(18, 8)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
