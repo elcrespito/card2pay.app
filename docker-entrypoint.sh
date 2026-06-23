@@ -1,25 +1,39 @@
 #!/bin/sh
-# Renders public/config.template.js -> config.js using environment variables.
-# Runs automatically via nginx's /docker-entrypoint.d/ hook before nginx starts.
-set -e
+# Resilient startup: ensure the schema exists + seed the admin, but never let
+# those steps crash the container — always start the server so the app stays up.
+#
+# The schema DDL (prisma/init.sql) is generated at build time from the Prisma
+# schema, so the runtime image needs only psql (not the Prisma CLI).
 
-: "${BUYCOIN_WIDGET_TOKEN:=}"
-: "${BUYCOIN_EXCHANGER_URL:=https://buycoin.online/x/calc/exchanger.js}"
-: "${WIDGET_CURRENCY_FROM:=EUR}"
-: "${WIDGET_CURRENCY_TO:=USDT}"
-: "${WIDGET_LOCALE:=en}"
-: "${WIDGET_LAYOUT:=vertical}"
-: "${WIDGET_THEME:=light}"
-: "${ALLOWED_REFERRER:=peptides}"
+echo "[card2pay] DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo yes || echo NO)"
 
-export BUYCOIN_WIDGET_TOKEN BUYCOIN_EXCHANGER_URL WIDGET_CURRENCY_FROM \
-  WIDGET_CURRENCY_TO WIDGET_LOCALE WIDGET_LAYOUT WIDGET_THEME ALLOWED_REFERRER
+# psql doesn't understand Prisma's ?schema=public query string — strip it.
+PSQL_URL=$(printf '%s' "$DATABASE_URL" | sed 's/?.*$//')
 
-TEMPLATE="/usr/share/nginx/html/config.template.js"
-OUTPUT="/usr/share/nginx/html/config.js"
+# Wait briefly for Postgres to accept connections (it may still be starting).
+i=0
+while [ $i -lt 30 ]; do
+  if pg_isready -d "$PSQL_URL" >/dev/null 2>&1; then
+    echo "[card2pay] Postgres is ready."
+    break
+  fi
+  i=$((i + 1))
+  echo "[card2pay] waiting for Postgres… ($i)"
+  sleep 2
+done
 
-envsubst \
-  '${BUYCOIN_WIDGET_TOKEN} ${BUYCOIN_EXCHANGER_URL} ${WIDGET_CURRENCY_FROM} ${WIDGET_CURRENCY_TO} ${WIDGET_LOCALE} ${WIDGET_LAYOUT} ${WIDGET_THEME} ${ALLOWED_REFERRER}' \
-  < "$TEMPLATE" > "$OUTPUT"
+# Fresh DB -> full schema; existing DB -> idempotent incremental upgrade.
+HAS_TABLES=$(psql "$PSQL_URL" -tAc "SELECT to_regclass('public.users') IS NOT NULL" 2>/dev/null)
+if [ "$HAS_TABLES" = "t" ]; then
+  echo "[card2pay] Base schema present — applying incremental upgrade (idempotent)…"
+  psql "$PSQL_URL" -v ON_ERROR_STOP=0 -f prisma/upgrade.sql || echo "[card2pay] upgrade reported errors (continuing)"
+else
+  echo "[card2pay] Fresh DB — applying full schema from prisma/init.sql…"
+  psql "$PSQL_URL" -v ON_ERROR_STOP=0 -f prisma/init.sql || echo "[card2pay] schema apply reported errors (continuing)"
+fi
 
-echo "[card2pay] config.js generated (token set: $([ -n "$BUYCOIN_WIDGET_TOKEN" ] && echo yes || echo no))"
+echo "[card2pay] Seeding admin user…"
+node prisma/seed.cjs || echo "[card2pay] seed skipped/failed (continuing)"
+
+echo "[card2pay] Starting server…"
+exec "$@"

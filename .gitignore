@@ -1,5 +1,22 @@
-.env
-.DS_Store
+# dependencies
 node_modules/
-public/config.js
+
+# next
+/.next/
+/out/
+next-env.d.ts.bak
+
+# production
+/build
+
+# env
+.env
+.env*.local
+
+# misc
+.DS_Store
 *.log
+
+# prisma
+/prisma/*.db
+tsconfig.tsbuildinfo

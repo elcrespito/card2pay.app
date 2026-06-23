@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #08080b;
+  color: #e7e7ea;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-gold-500 text-ink-950 hover:bg-gold-400;
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/5 text-white hover:bg-white/10;
+  }
+  .btn-danger {
+    @apply btn border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20;
+  }
+  .input {
+    @apply w-full rounded-lg border border-white/10 bg-ink-850 px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-gold-500/60 focus:ring-2 focus:ring-gold-500/20;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/50;
+  }
+  .card {
+    @apply rounded-2xl border border-white/[0.06] bg-ink-900 p-6 shadow-card;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .table-th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/40;
+  }
+  .table-td {
+    @apply px-4 py-3 text-sm text-white/80;
+  }
+}

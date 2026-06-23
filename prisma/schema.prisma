@@ -1,0 +1,217 @@
+// Card2pay platform data model.
+// Users (merchants + admins) create payment links; each payment attempt
+// becomes an Order tracked by id and attributed to its creator.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MERCHANT
+}
+
+enum UserStatus {
+  PENDING // signed up, awaiting admin approval
+  ACTIVE
+  SUSPENDED
+}
+
+enum LinkType {
+  ONE_TIME // can only be paid successfully once
+  REUSABLE // can be paid many times (recurring/standing)
+}
+
+enum LinkStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum OrderStatus {
+  PENDING // created, deposit address issued
+  WAITING // waiting for the customer to pay
+  CONFIRMING // detected on-chain, awaiting confirmations
+  PARTIALLY_PAID
+  PAID // confirmed / finished
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  UNPAID // money received by us, merchant not paid out yet
+  PROCESSING
+  SENT // we manually sent the merchant their share
+}
+
+enum SiteStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CallbackStatus {
+  NA // nothing to call back (no site / no callback url)
+  PENDING // payment confirmed, callback not yet delivered
+  SENT // merchant site acknowledged (2xx)
+  FAILED // delivery attempted, merchant site errored
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  company      String?
+  passwordHash String
+  role         Role       @default(MERCHANT)
+  status       UserStatus @default(PENDING)
+
+  // How this merchant wants to receive their manual payouts.
+  payoutMethod  String? // e.g. "USDT TRC20", "Bank transfer (SEPA)"
+  payoutAddress String? // wallet address / IBAN
+  payoutNotes   String?
+
+  links  PaymentLink[]
+  orders Order[]
+  sites  MerchantSite[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("users")
+}
+
+model PaymentLink {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  description String?
+  amount      Decimal    @db.Decimal(18, 2)
+  currency    String     @default("USD")
+  type        LinkType   @default(ONE_TIME)
+  status      LinkStatus @default(ACTIVE)
+
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId String
+
+  orders Order[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([creatorId])
+  @@index([status])
+  @@map("payment_links")
+}
+
+// A client website (e.g. a WooCommerce store) integrated via the hosted
+// checkout. It signs/encrypts orders with apiSecret and is identified by apiKey.
+// When an order is paid we POST a signed notification to callbackUrl.
+model MerchantSite {
+  id          String     @id @default(cuid())
+  name        String
+  domain      String? // informational, e.g. shop.example.com
+  apiKey      String     @unique // public identifier sent in the checkout URL
+  apiSecret   String // shared secret: encrypts the order hash + signs callbacks
+  callbackUrl String? // merchant endpoint notified on payment (WP plugin route)
+  status      SiteStatus @default(ACTIVE)
+
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String
+
+  orders Order[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@map("merchant_sites")
+}
+
+model Order {
+  id        String @id @default(cuid())
+  reference String @unique // human-friendly id, e.g. C2P-8F3K2Q
+
+  // Orders originate either from a hosted PaymentLink or from an integrated
+  // client Site (WordPress/WooCommerce). Exactly one of link/site is set.
+  link   PaymentLink? @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  linkId String?
+
+  site   MerchantSite? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  siteId String?
+
+  // The client's own order id (e.g. WooCommerce order id) + where to send the
+  // customer back, and where to deliver the paid-notification.
+  externalOrderId String?
+  description     String?
+  returnUrl       String?
+  callbackUrl     String?
+
+  // Denormalised so admin/merchant queries don't always need the join.
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId String
+
+  amount   Decimal @db.Decimal(18, 2)
+  currency String  @default("USD")
+
+  // NOWPayments leg.
+  payCurrency  String? // e.g. usdttrc20
+  payAmount    Decimal? @db.Decimal(36, 8)
+  payAddress   String?
+  nowPaymentId String?  @unique
+  actuallyPaid Decimal? @db.Decimal(36, 8)
+
+  status     OrderStatus @default(PENDING)
+  payerEmail String?
+  paidAt     DateTime?
+
+  // Manual payout to the merchant who created the link.
+  payoutStatus PayoutStatus @default(UNPAID)
+  payoutTxRef  String?
+  payoutAt     DateTime?
+  payoutNote   String?
+
+  // Notification back to the originating client site once paid.
+  callbackStatus    CallbackStatus @default(NA)
+  callbackAttempts  Int            @default(0)
+  callbackLastError String?
+  callbackAt        DateTime?
+
+  lastIpn Json? // last raw IPN payload for audit
+
+  // PayGate card checkout leg (payments.card2pay white-label).
+  paygateAddressIn String?
+  paygateNonce       String?
+  paygateExpectedUsd Decimal? @db.Decimal(18, 8)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([siteId, externalOrderId])
+  @@index([creatorId])
+  @@index([linkId])
+  @@index([siteId])
+  @@index([status])
+  @@index([payoutStatus])
+  @@map("orders")
+}
+
+// Inbound callback sink used for end-to-end testing of the merchant
+// notification loop without a real WordPress site. Records what (and whether a
+// valid signature) was received at /api/test/callback-sink.
+model CallbackLog {
+  id          String   @id @default(cuid())
+  apiKey      String?
+  signatureOk Boolean  @default(false)
+  headers     Json?
+  body        Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([apiKey])
+  @@map("callback_logs")
+}
