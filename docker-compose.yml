@@ -50,3 +50,5 @@ services:
 
 volumes:
   db-data:
+
+# Production on Coolify: use coolify/docker-compose.yml (see coolify/README.md).
