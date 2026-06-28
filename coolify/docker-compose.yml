@@ -1,37 +1,34 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: card2pay-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-card2pay}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-card2pay}
+      POSTGRES_USER: card2pay
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_DB}
+      POSTGRES_DB: card2pay
     volumes:
       - db-data:/var/lib/postgresql/data
-    networks:
-      - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-card2pay}"]
+      test: ["CMD-SHELL", "pg_isready -U card2pay -d card2pay"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
 
   app:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    container_name: card2pay-app
+    image: ghcr.io/elcrespito/card2pay.app:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-card2pay}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-card2pay}?schema=public
-      APP_URL: ${APP_URL}
-      SESSION_SECRET: ${SESSION_SECRET}
+      # Coolify: auto domain + proxy to port 3000 (set domain in UI if needed)
+      SERVICE_URL_APP_3000:
+      DATABASE_URL: postgresql://card2pay:${SERVICE_PASSWORD_DB}@db:5432/card2pay?schema=public
+      APP_URL: ${SERVICE_URL_APP}
+      SESSION_SECRET: ${SERVICE_BASE64_64}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@card2pay.app}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe!2026}
       ADMIN_NAME: ${ADMIN_NAME:-Card2pay Admin}
       REQUIRE_APPROVAL: ${REQUIRE_APPROVAL:-true}
       NOWPAYMENTS_API_KEY: ${NOWPAYMENTS_API_KEY:-}
@@ -49,26 +46,6 @@ services:
       WIDGET_LAYOUT: ${WIDGET_LAYOUT:-vertical}
       WIDGET_THEME: ${WIDGET_THEME:-}
       ALLOWED_REFERRER: ${ALLOWED_REFERRER:-*}
-    networks:
-      - internal
-      - coolify
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=coolify
-      - traefik.http.routers.card2pay-http.entryPoints=http
-      - traefik.http.routers.card2pay-http.rule=Host(`${CARD2PAY_HOST}`)
-      - traefik.http.routers.card2pay-http.middlewares=card2pay-redirect-https
-      - traefik.http.middlewares.card2pay-redirect-https.redirectscheme.scheme=https
-      - traefik.http.routers.card2pay-https.entryPoints=https
-      - traefik.http.routers.card2pay-https.rule=Host(`${CARD2PAY_HOST}`)
-      - traefik.http.routers.card2pay-https.tls=true
-      - traefik.http.routers.card2pay-https.tls.certresolver=letsencrypt
-      - traefik.http.services.card2pay.loadbalancer.server.port=3000
 
 volumes:
   db-data:
-
-networks:
-  internal:
-  coolify:
-    external: true

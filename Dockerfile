@@ -8,6 +8,7 @@ RUN npm ci || npm install
 # ---- Builder ---------------------------------------------------------------
 FROM node:22-alpine AS builder
 WORKDIR /app
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN apk add --no-cache libc6-compat openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

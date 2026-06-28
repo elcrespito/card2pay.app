@@ -1,0 +1,7 @@
+# Fallback: build on the server (needs ~2GB RAM free). Prefer ghcr image in docker-compose.yml.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ghcr.io/elcrespito/card2pay.app:local
